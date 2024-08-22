@@ -1,0 +1,37 @@
+name: Deploy
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches: [ "main" ]
+
+jobs:
+  verify:
+    if: ${{ github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run a multi-line script
+        run: |
+          python -c "
+          import os
+          branch = os.getenv('PR_BRANCH', '')
+          if branch.startswith('test/''):
+              parts = branch[5:].split('/'')
+              with open(os.getenv('GITHUB_OUTPUT'), 'a') as out:
+                  out.write(f'environment={parts[1]}\n')
+                  out.write('valid=true\n')
+          "
+        env:
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+
+  deploy:
+    needs: verify
+    environment: ${{ needs.verify.outputs.environment }}
+    runs-on: ubuntu-latest
+    if: ${{ needs.verify.outputs.valid }}
+    permissions:
+      deployments: write
+    steps:
+      - name: Deploy
+        run: echo success!
